@@ -194,6 +194,39 @@
       color: var(--text);
     }
 
+    ol.publications {
+      padding-left: 22px;
+      margin-bottom: 0;
+    }
+
+    ol.publications li {
+      margin-bottom: 16px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    ol.publications li:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+      margin-bottom: 0;
+    }
+
+    ol.publications sup {
+      font-size: 0.72em;
+      color: var(--accent);
+      font-weight: 650;
+    }
+
+    .pub-title {
+      font-weight: 650;
+      color: #111827;
+    }
+
+    .pub-links {
+      margin-left: 4px;
+      white-space: nowrap;
+    }
+
     /* Cleaner BibBase style */
     #bibbase_header,
     #bibbase_header a,
@@ -346,12 +379,9 @@
       <h2>Publications</h2>
       <p class="pub-note"><em><sup>‡</sup> Equal contribution; * Corresponding author.</em></p>
 
-      <!-- 
-        After uploading this file and pubs.bib to GitHub, replace USERNAME and REPOSITORY below.
-        Example:
-        https://raw.githubusercontent.com/jqhuangbnu-stack/jqhuangbnu-stack.github.io/main/pubs.bib
-      -->
-      <script src="https://bibbase.org/show?bib=https://raw.githubusercontent.com/jqhuangbnu-stack/jqhuangbnu-stack.github.io/main/pubs.bib&jsonp=1"></script>
+      <ol id="publication-list" class="publications">
+        <li>Loading publications...</li>
+      </ol>
 
       <noscript>
         Please enable JavaScript to view the publication list.
@@ -411,5 +441,204 @@
   <footer class="footer">
     © Jiaqi Huang. Last updated: 2026.
   </footer>
+
+  <script>
+    function splitBibEntries(bibText) {
+      const entries = [];
+      let current = "";
+      let depth = 0;
+      let inEntry = false;
+
+      for (let i = 0; i < bibText.length; i++) {
+        const ch = bibText[i];
+
+        if (ch === "@" && !inEntry) {
+          inEntry = true;
+          current = ch;
+          depth = 0;
+          continue;
+        }
+
+        if (inEntry) {
+          current += ch;
+          if (ch === "{") depth++;
+          if (ch === "}") {
+            depth--;
+            if (depth === 0) {
+              entries.push(current);
+              current = "";
+              inEntry = false;
+            }
+          }
+        }
+      }
+      return entries;
+    }
+
+    function parseFields(entry) {
+      const typeMatch = entry.match(/^@(\w+)\s*\{\s*([^,]+),/);
+      const item = {
+        type: typeMatch ? typeMatch[1].toLowerCase() : "",
+        key: typeMatch ? typeMatch[2].trim() : ""
+      };
+
+      let body = entry.replace(/^@\w+\s*\{\s*[^,]+,/, "").replace(/\}\s*$/, "");
+      let i = 0;
+
+      while (i < body.length) {
+        while (i < body.length && /[\s,]/.test(body[i])) i++;
+        let nameStart = i;
+        while (i < body.length && /[A-Za-z0-9_-]/.test(body[i])) i++;
+        let field = body.slice(nameStart, i).toLowerCase();
+        while (i < body.length && /\s/.test(body[i])) i++;
+        if (body[i] !== "=") break;
+        i++;
+        while (i < body.length && /\s/.test(body[i])) i++;
+
+        let value = "";
+        if (body[i] === "{") {
+          i++;
+          let depth = 1;
+          while (i < body.length && depth > 0) {
+            if (body[i] === "{") {
+              depth++;
+              value += body[i];
+            } else if (body[i] === "}") {
+              depth--;
+              if (depth > 0) value += body[i];
+            } else {
+              value += body[i];
+            }
+            i++;
+          }
+        } else if (body[i] === '"') {
+          i++;
+          while (i < body.length && body[i] !== '"') {
+            value += body[i];
+            i++;
+          }
+          i++;
+        } else {
+          while (i < body.length && body[i] !== ",") {
+            value += body[i];
+            i++;
+          }
+        }
+
+        if (field) item[field] = value.trim();
+      }
+
+      return item;
+    }
+
+    function escapeHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function initials(firstNames) {
+      return firstNames
+        .split(/[\s-]+/)
+        .filter(Boolean)
+        .map(x => x.charAt(0) + ".")
+        .join(" ");
+    }
+
+    function formatOneAuthor(author, role) {
+      author = author.trim();
+      let last = author;
+      let first = "";
+
+      if (author.includes(",")) {
+        const parts = author.split(",");
+        last = parts[0].trim();
+        first = parts.slice(1).join(",").trim();
+      } else {
+        const parts = author.split(/\s+/);
+        last = parts.pop();
+        first = parts.join(" ");
+      }
+
+      let display = "";
+      const full = (first + " " + last).trim().toLowerCase();
+      const isJiaqi = full === "jiaqi huang" || author.toLowerCase() === "huang, jiaqi";
+
+      if (isJiaqi) {
+        display = "<strong>Huang, J.</strong>";
+        if (role === "equal-corresponding") display += "<sup>‡,*</sup>";
+        else if (role === "equal") display += "<sup>‡</sup>";
+        else if (role === "corresponding") display += "<sup>*</sup>";
+      } else {
+        display = escapeHtml(last + (first ? ", " + initials(first) : ""));
+      }
+
+      return display;
+    }
+
+    function joinAuthors(authors, role) {
+      const parts = authors.split(/\s+and\s+/i).map(a => formatOneAuthor(a, role));
+      if (parts.length === 1) return parts[0];
+      if (parts.length === 2) return parts[0] + " &amp; " + parts[1];
+      return parts.slice(0, -1).join(", ") + ", &amp; " + parts[parts.length - 1];
+    }
+
+    function formatPublication(item) {
+      const role = (item.jiaqirole || "").toLowerCase();
+      const authors = joinAuthors(item.author || "", role);
+      const year = item.year ? " (" + escapeHtml(item.year) + ")." : ".";
+      const title = item.title ? " <span class=\"pub-title\">" + escapeHtml(item.title) + ".</span>" : "";
+      const journal = item.journal ? " <em>" + escapeHtml(item.journal) + "</em>" : "";
+
+      let details = "";
+      if (item.volume) details += ", " + escapeHtml(item.volume);
+      if (item.number) details += "(" + escapeHtml(item.number) + ")";
+      if (item.pages) details += ", " + escapeHtml(item.pages.replace(/--/g, "–"));
+      if (item.note) details += ", " + escapeHtml(item.note);
+      details += ".";
+
+      let links = "";
+      if (item.doi) {
+        links += ' <span class="pub-links"><a href="https://doi.org/' + encodeURIComponent(item.doi) + '">DOI</a></span>';
+      }
+      if (item.url) {
+        links += ' <span class="pub-links"><a href="' + escapeHtml(item.url) + '">Link</a></span>';
+      }
+
+      return authors + year + title + journal + details + links;
+    }
+
+    async function loadPublications() {
+      const list = document.getElementById("publication-list");
+      try {
+        const response = await fetch("pubs.bib?cache=" + Date.now());
+        if (!response.ok) throw new Error("Could not load pubs.bib");
+        const bibText = await response.text();
+        const entries = splitBibEntries(bibText).map(parseFields);
+
+        entries.sort((a, b) => {
+          const yearA = parseInt(a.year || "0", 10);
+          const yearB = parseInt(b.year || "0", 10);
+          if (yearA !== yearB) return yearB - yearA;
+          return (a.title || "").localeCompare(b.title || "");
+        });
+
+        list.innerHTML = "";
+        entries.forEach(item => {
+          const li = document.createElement("li");
+          li.innerHTML = formatPublication(item);
+          list.appendChild(li);
+        });
+      } catch (error) {
+        list.innerHTML = "<li>Publications could not be loaded. Please check that <code>pubs.bib</code> is uploaded in the same folder as <code>index.html</code>.</li>";
+        console.error(error);
+      }
+    }
+
+    loadPublications();
+  </script>
+
 </body>
 </html>
