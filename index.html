@@ -539,6 +539,35 @@
         .replace(/"/g, "&quot;");
     }
 
+    function normalizeName(name) {
+      name = String(name || "").trim().toLowerCase();
+      if (!name) return "";
+
+      let last = "";
+      let first = "";
+
+      if (name.includes(",")) {
+        const parts = name.split(",");
+        last = parts[0].trim();
+        first = parts.slice(1).join(",").trim();
+      } else {
+        const parts = name.split(/\s+/);
+        last = parts.pop() || "";
+        first = parts.join(" ");
+      }
+
+      return (first + " " + last).replace(/\./g, "").replace(/\s+/g, " ").trim();
+    }
+
+    function parseRoleList(str) {
+      return new Set(
+        String(str || "")
+          .split(";")
+          .map(x => normalizeName(x))
+          .filter(Boolean)
+      );
+    }
+
     function initials(firstNames) {
       return firstNames
         .split(/[\s-]+/)
@@ -547,7 +576,7 @@
         .join(" ");
     }
 
-    function formatOneAuthor(author, role) {
+    function formatOneAuthor(author, equalSet, corrSet) {
       author = author.trim();
       let last = author;
       let first = "";
@@ -562,32 +591,37 @@
         first = parts.join(" ");
       }
 
-      let display = "";
-      const full = (first + " " + last).trim().toLowerCase();
-      const isJiaqi = full === "jiaqi huang" || author.toLowerCase() === "huang, jiaqi";
+      const normalized = normalizeName(author);
+      const isJiaqi = normalized === "jiaqi huang";
+      const isEqual = equalSet.has(normalized);
+      const isCorr = corrSet.has(normalized);
+
+      let display = escapeHtml(last + (first ? ", " + initials(first) : ""));
 
       if (isJiaqi) {
-        display = "<strong>Huang, J.</strong>";
-        if (role === "equal-corresponding") display += "<sup>‡,*</sup>";
-        else if (role === "equal") display += "<sup>‡</sup>";
-        else if (role === "corresponding") display += "<sup>*</sup>";
-      } else {
-        display = escapeHtml(last + (first ? ", " + initials(first) : ""));
+        display = "<strong>" + display + "</strong>";
       }
+
+      const marks = [];
+      if (isEqual) marks.push("‡");
+      if (isCorr) marks.push("*");
+      if (marks.length > 0) display += "<sup>" + marks.join(",") + "</sup>";
 
       return display;
     }
 
-    function joinAuthors(authors, role) {
-      const parts = authors.split(/\s+and\s+/i).map(a => formatOneAuthor(a, role));
+    function joinAuthors(authors, equalSet, corrSet) {
+      const parts = authors.split(/\s+and\s+/i).map(a => formatOneAuthor(a, equalSet, corrSet));
       if (parts.length === 1) return parts[0];
       if (parts.length === 2) return parts[0] + " &amp; " + parts[1];
       return parts.slice(0, -1).join(", ") + ", &amp; " + parts[parts.length - 1];
     }
 
     function formatPublication(item) {
-      const role = (item.jiaqirole || "").toLowerCase();
-      const authors = joinAuthors(item.author || "", role);
+      const equalSet = parseRoleList(item.equalauthors);
+      const corrSet = parseRoleList(item.corrauthors);
+      const authors = joinAuthors(item.author || "", equalSet, corrSet);
+
       const year = item.year ? " (" + escapeHtml(item.year) + ")." : ".";
       const title = item.title ? " <span class=\"pub-title\">" + escapeHtml(item.title) + ".</span>" : "";
       const journal = item.journal ? " <em>" + escapeHtml(item.journal) + "</em>" : "";
