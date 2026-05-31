@@ -81,9 +81,21 @@
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 18px;
-      padding: 22px;
+      padding: 26px 22px;
       box-shadow: 0 12px 28px rgba(31, 41, 55, 0.06);
       text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .profile-card::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      height: 7px;
+      background: linear-gradient(90deg, var(--accent), #8fb3e8);
     }
 
     .portrait {
@@ -98,8 +110,8 @@
     }
 
     .profile-card h1 {
-      font-size: 1.75rem;
-      margin: 8px 0 4px;
+      font-size: 1.85rem;
+      margin: 12px 0 6px;
       line-height: 1.2;
     }
 
@@ -227,6 +239,39 @@
       white-space: nowrap;
     }
 
+    .news-list {
+      list-style: none;
+      padding-left: 0;
+      margin-bottom: 0;
+    }
+
+    .news-list li {
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .news-list li:last-child {
+      border-bottom: none;
+    }
+
+    .news-date {
+      display: inline-block;
+      min-width: 92px;
+      font-weight: 650;
+      color: var(--accent);
+    }
+
+    .pub-year {
+      margin: 24px 0 10px;
+      font-size: 1.08rem;
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .pub-year:first-child {
+      margin-top: 0;
+    }
+
     /* Cleaner BibBase style */
     #bibbase_header,
     #bibbase_header a,
@@ -310,6 +355,7 @@
       <a class="brand" href="#">Jiaqi Huang</a>
       <div class="nav-links">
         <a href="#about">About</a>
+        <a href="#news">News</a>
         <a href="#research">Research</a>
         <a href="#publications">Publications</a>
         <a href="#talks">Talks</a>
@@ -321,8 +367,6 @@
 
   <div class="hero">
     <aside class="profile-card">
-      <!-- Put your photo in the same folder and name it profile.jpg -->
-      <img class="portrait" src="profile.jpg" alt="Jiaqi Huang profile photo" onerror="this.style.display='none';" />
       <h1>Jiaqi Huang</h1>
       <p class="title">Postdoctoral Research Fellow<br />Department of Statistics<br />University of Michigan<br /><span class="profile-date">2025&ndash;Present</span></p>
       <div class="contact-links">
@@ -353,24 +397,31 @@
   </div>
 
   <main>
+    <section id="news">
+      <h2>News</h2>
+      <ul class="news-list">
+        <li><span class="news-date">2026</span> I will present my work at JSM 2026 in Boston.</li>
+      </ul>
+    </section>
+
     <section id="research">
       <h2>Research Interests</h2>
       <div class="two-column">
         <div class="mini-card">
           <h3>Complex Data Structures</h3>
-          <p>Statistical inference for high-dimensional, tensor, functional, and structured data.</p>
+          <p>Statistical inference for high-dimensional, tensor, functional, and other structured data.</p>
         </div>
         <div class="mini-card">
           <h3>Model Checking and Testing</h3>
-          <p>Specification testing, goodness-of-fit testing, and model-structure detection.</p>
+          <p>Specification testing, goodness-of-fit testing, and model-structure detection for complex models.</p>
         </div>
         <div class="mini-card">
           <h3>Change Point Detection</h3>
-          <p>Dimension-reduction and low-rank methods for detecting structural changes.</p>
+          <p>Dimension-reduction and low-rank methods for detecting structural changes in high-dimensional and tensor data.</p>
         </div>
         <div class="mini-card">
           <h3>Statistical Machine Learning</h3>
-          <p>Machine learning and generative modeling methods with statistical guarantees.</p>
+          <p>Statistical machine learning and generative modeling methods with theoretical guarantees.</p>
         </div>
       </div>
     </section>
@@ -379,9 +430,9 @@
       <h2>Publications</h2>
       <p class="pub-note"><em><sup>‡</sup> Equal contribution; * Corresponding author.</em></p>
 
-      <ol id="publication-list" class="publications">
-        <li>Loading publications...</li>
-      </ol>
+      <div id="publication-list">
+        Loading publications...
+      </div>
 
       <noscript>
         Please enable JavaScript to view the publication list.
@@ -645,7 +696,7 @@
     }
 
     async function loadPublications() {
-      const list = document.getElementById("publication-list");
+      const container = document.getElementById("publication-list");
       try {
         const response = await fetch("pubs.bib?cache=" + Date.now());
         if (!response.ok) throw new Error("Could not load pubs.bib");
@@ -659,14 +710,30 @@
           return (a.title || "").localeCompare(b.title || "");
         });
 
-        list.innerHTML = "";
+        container.innerHTML = "";
+        let currentYear = null;
+        let currentList = null;
+
         entries.forEach(item => {
+          const year = item.year || "Other";
+          if (year !== currentYear) {
+            currentYear = year;
+            const yearHeader = document.createElement("div");
+            yearHeader.className = "pub-year";
+            yearHeader.textContent = year;
+            container.appendChild(yearHeader);
+
+            currentList = document.createElement("ol");
+            currentList.className = "publications";
+            container.appendChild(currentList);
+          }
+
           const li = document.createElement("li");
           li.innerHTML = formatPublication(item);
-          list.appendChild(li);
+          currentList.appendChild(li);
         });
       } catch (error) {
-        list.innerHTML = "<li>Publications could not be loaded. Please check that <code>pubs.bib</code> is uploaded in the same folder as <code>index.html</code>.</li>";
+        container.innerHTML = "<ol class=\"publications\"><li>Publications could not be loaded. Please check that <code>pubs.bib</code> is uploaded in the same folder as <code>index.html</code>.</li></ol>";
         console.error(error);
       }
     }
