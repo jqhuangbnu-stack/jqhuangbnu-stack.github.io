@@ -283,7 +283,7 @@
     }
 
     .pub-title {
-      font-weight: 650;
+      font-weight: 400;
       color: #111827;
     }
 
@@ -740,7 +740,7 @@
 
       const year = item.year ? " (" + escapeHtml(item.year) + ")." : ".";
       const title = item.title ? " <span class=\"pub-title\">" + escapeHtml(item.title) + ".</span>" : "";
-      const journal = item.journal ? " <em>" + escapeHtml(item.journal) + "</em>" : "";
+      const journal = item.journal ? " <strong><em>" + escapeHtml(item.journal) + "</em></strong>" : "";
 
       let details = "";
       if (item.volume) details += ", " + escapeHtml(item.volume);
